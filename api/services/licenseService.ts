@@ -36,15 +36,27 @@ export const licenseService = {
     return store.deleteLicense(id);
   },
 
-  batchImport(data: Omit<License, 'id' | 'createdAt' | 'updatedAt' | 'allocatedQuantity'>[]): { success: number; failed: number } {
-    const now = new Date().toISOString();
-    const licenses: License[] = data.map(d => ({
-      ...d,
-      id: generateId(),
-      allocatedQuantity: 0,
-      createdAt: now,
-      updatedAt: now,
-    }));
-    return store.batchImportLicenses(licenses);
+  batchImport(data: Omit<License, 'id' | 'createdAt' | 'updatedAt' | 'allocatedQuantity'>[]): {
+    added: number;
+    updated: number;
+    failed: number;
+  } {
+    return store.batchImportLicenses(data);
+  },
+
+  getRenewalRecords(licenseId?: string) {
+    return store.getRenewalRecords(licenseId);
+  },
+
+  renewLicense(
+    licenseId: string,
+    data: {
+      newExpiryDate: string;
+      newQuantity: number;
+      purchaseOrder?: string;
+      notes?: string;
+    },
+  ): License | { error: string } | undefined {
+    return store.renewLicense(licenseId, data);
   },
 };

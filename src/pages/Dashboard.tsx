@@ -20,12 +20,12 @@ import { useNavigate } from 'react-router-dom';
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { overview, expiringList, usageStats, fetchAll, loading } = useStore();
+  const { overview, expiringList, usageStats, fetchOverview, fetchExpiring, fetchUsageStats, loading } = useStore();
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    fetchAll().then(() => setReady(true));
-  }, [fetchAll]);
+    Promise.all([fetchOverview(), fetchExpiring(), fetchUsageStats()]).then(() => setReady(true));
+  }, []);
 
   const idleList = usageStats.filter(u => u.usageRate < 50).slice(0, 5);
 

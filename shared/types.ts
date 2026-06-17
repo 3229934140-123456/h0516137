@@ -40,6 +40,19 @@ export interface Allocation {
   allocatedBy?: string;
 }
 
+export interface RenewalRecord {
+  id: string;
+  licenseId: string;
+  oldExpiryDate: string;
+  newExpiryDate: string;
+  oldQuantity: number;
+  newQuantity: number;
+  purchaseOrder?: string;
+  notes?: string;
+  renewedAt: string;
+  renewedBy?: string;
+}
+
 export interface StatsOverview {
   totalLicenses: number;
   expiringCount: number;

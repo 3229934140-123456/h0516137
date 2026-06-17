@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import Badge from '@/components/Badge';
 import Button from '@/components/Button';
@@ -10,18 +10,27 @@ import {
   AlertTriangle,
   CheckCircle2,
   XCircle,
+  RefreshCw,
 } from 'lucide-react';
 import { getExpiryStatus, formatDate, daysUntil, cn } from '@/lib/utils';
 import { LICENSE_TYPE_LABELS } from '../../shared/types';
+import RenewalModal from '@/components/RenewalModal';
 
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
 
 export default function ExpiryCalendar() {
-  const { licenses } = useStore();
+  const { licenses, fetchLicenses, fetchExpiring, renewLicense } = useStore();
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [showRenewal, setShowRenewal] = useState(false);
+  const [renewalLicense, setRenewalLicense] = useState<typeof licenses[0] | null>(null);
+  const [renewalLoading, setRenewalLoading] = useState(false);
+
+  useEffect(() => {
+    Promise.all([fetchLicenses(), fetchExpiring()]);
+  }, []);
 
   const firstDay = new Date(viewYear, viewMonth, 1);
   const lastDay = new Date(viewYear, viewMonth + 1, 0);
@@ -86,6 +95,24 @@ export default function ExpiryCalendar() {
   }, [viewYear, viewMonth, daysInMonth, expiryByDate]);
 
   const selectedItems = selectedDate ? expiryByDate.get(selectedDate) || [] : [];
+
+  const handleOpenRenewal = (lic: typeof licenses[0]) => {
+    setRenewalLicense(lic);
+    setShowRenewal(true);
+  };
+
+  const handleRenewalSubmit = async (data: { newExpiryDate: string; newQuantity: number; purchaseOrder: string; notes: string }) => {
+    if (!renewalLicense) return;
+    setRenewalLoading(true);
+    try {
+      await renewLicense(renewalLicense.id, data);
+      setShowRenewal(false);
+      setRenewalLicense(null);
+      await Promise.all([fetchLicenses(), fetchExpiring()]);
+    } finally {
+      setRenewalLoading(false);
+    }
+  };
 
   const getDateDotColor = (dateStr: string) => {
     const items = expiryByDate.get(dateStr);
@@ -308,6 +335,18 @@ export default function ExpiryCalendar() {
                           <span>{LICENSE_TYPE_LABELS[lic.licenseType]}</span>
                           <span className="font-mono">剩余 {lic.totalQuantity - lic.allocatedQuantity}/{lic.totalQuantity}</span>
                         </div>
+                        <div className="mt-3 flex justify-end">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenRenewal(lic);
+                            }}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-brand-600 bg-brand-50 hover:bg-brand-100 rounded-lg transition-colors"
+                          >
+                            <RefreshCw className="w-3.5 h-3.5" />
+                            续期
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
@@ -317,6 +356,17 @@ export default function ExpiryCalendar() {
           </div>
         </div>
       </div>
+
+      <RenewalModal
+        open={showRenewal}
+        onClose={() => {
+          setShowRenewal(false);
+          setRenewalLicense(null);
+        }}
+        license={renewalLicense}
+        onSubmit={handleRenewalSubmit}
+        loading={renewalLoading}
+      />
     </Layout>
   );
 }

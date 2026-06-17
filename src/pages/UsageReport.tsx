@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import Layout from '@/components/Layout';
 import Badge from '@/components/Badge';
 import { useStore } from '@/store';
@@ -13,7 +14,11 @@ import {
 import { getUsageColor, cn } from '@/lib/utils';
 
 export default function UsageReport() {
-  const { usageStats, overview } = useStore();
+  const { usageStats, overview, fetchUsageStats, fetchLicenses } = useStore();
+
+  useEffect(() => {
+    Promise.all([fetchUsageStats(), fetchLicenses()]);
+  }, []);
 
   const lowUsage = usageStats.filter(u => u.usageRate < 50);
   const highUsage = usageStats.filter(u => u.usageRate >= 90);

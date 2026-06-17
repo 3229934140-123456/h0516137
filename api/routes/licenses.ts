@@ -64,4 +64,40 @@ router.post('/batch-import', (req, res) => {
   }
 });
 
+router.get('/:id/renewals', (req, res) => {
+  const records = licenseService.getRenewalRecords(req.params.id);
+  res.json({ success: true, data: records });
+});
+
+router.post('/:id/renew', (req, res) => {
+  const { newExpiryDate, newQuantity, purchaseOrder, notes } = req.body as {
+    newExpiryDate: string;
+    newQuantity: number;
+    purchaseOrder?: string;
+    notes?: string;
+  };
+
+  if (!newExpiryDate || !newQuantity) {
+    res.status(400).json({ success: false, error: '缺少必填字段：新到期日和购买数量' });
+    return;
+  }
+
+  const result = licenseService.renewLicense(req.params.id, {
+    newExpiryDate,
+    newQuantity,
+    purchaseOrder,
+    notes,
+  });
+
+  if (!result) {
+    res.status(404).json({ success: false, error: '许可证不存在' });
+    return;
+  }
+  if ('error' in result) {
+    res.status(400).json({ success: false, error: result.error });
+    return;
+  }
+  res.json({ success: true, data: result });
+});
+
 export default router;

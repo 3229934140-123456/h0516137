@@ -1,8 +1,10 @@
-import { useState, useMemo, ChangeEvent, DragEvent } from 'react';
+import { useState, useMemo, useEffect, ChangeEvent, DragEvent } from 'react';
 import Layout from '@/components/Layout';
 import Button from '@/components/Button';
 import Modal from '@/components/Modal';
 import Badge from '@/components/Badge';
+import RenewalModal from '@/components/RenewalModal';
+import LicenseDetailModal from '@/components/LicenseDetailModal';
 import { useStore } from '@/store';
 import {
   Plus,
@@ -15,6 +17,11 @@ import {
   X,
   FileUp,
   CheckCircle2,
+  RefreshCw,
+  Eye,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
 } from 'lucide-react';
 import {
   getExpiryStatus,
@@ -22,7 +29,7 @@ import {
   getUsageColor,
   cn,
 } from '@/lib/utils';
-import type { License, LicenseType } from '../../shared/types';
+import type { License, LicenseType, RenewalRecord } from '../../shared/types';
 import { LICENSE_TYPE_LABELS } from '../../shared/types';
 
 const emptyForm: Omit<License, 'id' | 'createdAt' | 'updatedAt' | 'allocatedQuantity'> = {
@@ -39,18 +46,24 @@ const emptyForm: Omit<License, 'id' | 'createdAt' | 'updatedAt' | 'allocatedQuan
 };
 
 export default function LicenseList() {
-  const { licenses, fetchLicenses, createLicense, updateLicense, deleteLicense, batchImportLicenses } = useStore();
+  const { licenses, fetchLicenses, fetchAllocations, createLicense, updateLicense, deleteLicense, batchImportLicenses, renewLicense, fetchRenewalRecords } = useStore();
 
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<LicenseType | 'all'>('all');
   const [showForm, setShowForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [showRenewal, setShowRenewal] = useState(false);
+  const [showDetail, setShowDetail] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedLicense, setSelectedLicense] = useState<License | null>(null);
   const [formData, setFormData] = useState(emptyForm);
   const [formError, setFormError] = useState('');
+  const [renewalLoading, setRenewalLoading] = useState(false);
+  const [renewalRecords, setRenewalRecords] = useState<RenewalRecord[]>([]);
 
   const [importData, setImportData] = useState<Omit<License, 'id' | 'createdAt' | 'updatedAt' | 'allocatedQuantity'>[]>([]);
   const [dragOver, setDragOver] = useState(false);
+  const [importResult, setImportResult] = useState<{ added: number; updated: number; failed: number } | null>(null);
 
   const filteredLicenses = useMemo(() => {
     return licenses.filter(lic => {
@@ -63,6 +76,11 @@ export default function LicenseList() {
       return matchSearch && matchType;
     });
   }, [licenses, search, filterType]);
+
+  useEffect(() => {
+    fetchLicenses();
+    fetchAllocations();
+  }, [fetchLicenses, fetchAllocations]);
 
   const handleOpenCreate = () => {
     setEditingId(null);
@@ -115,6 +133,32 @@ export default function LicenseList() {
     if (confirm('确定删除此许可证？相关分配记录也将被清除。')) {
       await deleteLicense(id);
     }
+  };
+
+  const handleOpenRenewal = (lic: License) => {
+    setSelectedLicense(lic);
+    setShowRenewal(true);
+  };
+
+  const handleRenewalSubmit = async (data: { newExpiryDate: string; newQuantity: number; purchaseOrder: string; notes: string }) => {
+    if (!selectedLicense) return;
+    setRenewalLoading(true);
+    try {
+      await renewLicense(selectedLicense.id, data);
+      setShowRenewal(false);
+      setSelectedLicense(null);
+    } finally {
+      setRenewalLoading(false);
+    }
+  };
+
+  const handleOpenDetail = async (lic: License) => {
+    setSelectedLicense(lic);
+    setRenewalRecords([]);
+    setShowDetail(true);
+    fetchRenewalRecords(lic.id).then(records => {
+      setRenewalRecords(records);
+    });
   };
 
   const parseCSV = (text: string) => {
@@ -196,9 +240,10 @@ export default function LicenseList() {
 
   const handleImport = async () => {
     if (importData.length === 0) return;
-    await batchImportLicenses(importData);
+    const result = await batchImportLicenses(importData);
     setShowImport(false);
     setImportData([]);
+    setImportResult(result);
   };
 
   return (
@@ -312,14 +357,30 @@ export default function LicenseList() {
                       <td className="px-5 py-3.5">
                         <div className="flex items-center justify-end gap-1">
                           <button
+                            onClick={() => handleOpenDetail(lic)}
+                            className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-brand-600 transition-colors"
+                            title="详情"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleOpenRenewal(lic)}
+                            className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-emerald-600 transition-colors"
+                            title="续期"
+                          >
+                            <RefreshCw className="w-4 h-4" />
+                          </button>
+                          <button
                             onClick={() => handleOpenEdit(lic)}
                             className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-brand-600 transition-colors"
+                            title="编辑"
                           >
                             <Pencil className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleDelete(lic.id)}
                             className="p-1.5 rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+                            title="删除"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -550,6 +611,70 @@ export default function LicenseList() {
           </div>
         )}
       </Modal>
+
+      <RenewalModal
+        open={showRenewal}
+        onClose={() => {
+          setShowRenewal(false);
+          setSelectedLicense(null);
+        }}
+        license={selectedLicense}
+        onSubmit={handleRenewalSubmit}
+        loading={renewalLoading}
+      />
+
+      <LicenseDetailModal
+        open={showDetail}
+        onClose={() => {
+          setShowDetail(false);
+          setSelectedLicense(null);
+          setRenewalRecords([]);
+        }}
+        license={selectedLicense}
+        renewalRecords={renewalRecords}
+      />
+
+      {importResult && (
+        <div className="fixed top-4 right-4 z-50 animate-fade-in">
+          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 p-4 w-80">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                导入完成
+              </h4>
+              <button
+                onClick={() => setImportResult(null)}
+                className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-600 flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-emerald-500" />
+                  新增
+                </span>
+                <span className="font-medium text-emerald-600 font-mono">{importResult.added} 条</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-600 flex items-center gap-2">
+                  <RefreshCw className="w-4 h-4 text-sky-500" />
+                  更新
+                </span>
+                <span className="font-medium text-sky-600 font-mono">{importResult.updated} 条</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-600 flex items-center gap-2">
+                  <XCircle className="w-4 h-4 text-red-500" />
+                  失败
+                </span>
+                <span className="font-medium text-red-600 font-mono">{importResult.failed} 条</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 }

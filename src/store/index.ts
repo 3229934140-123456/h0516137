@@ -7,6 +7,7 @@ import type {
   StatsOverview,
   UsageStats,
   RequestStatus,
+  RenewalRecord,
 } from '../../shared/types';
 
 interface AppState {
@@ -26,6 +27,7 @@ interface AppState {
   fetchOverview: () => Promise<void>;
   fetchExpiring: (days?: number) => Promise<void>;
   fetchUsageStats: () => Promise<void>;
+  fetchRenewalRecords: (licenseId: string) => Promise<RenewalRecord[]>;
 
   createLicense: (
     data: Omit<License, 'id' | 'createdAt' | 'updatedAt' | 'allocatedQuantity'>,
@@ -34,7 +36,11 @@ interface AppState {
   deleteLicense: (id: string) => Promise<void>;
   batchImportLicenses: (
     data: Omit<License, 'id' | 'createdAt' | 'updatedAt' | 'allocatedQuantity'>[],
-  ) => Promise<{ success: number; failed: number }>;
+  ) => Promise<{ added: number; updated: number; failed: number }>;
+  renewLicense: (
+    id: string,
+    data: { newExpiryDate: string; newQuantity: number; purchaseOrder?: string; notes?: string },
+  ) => Promise<License>;
 
   createAllocation: (data: { licenseId: string; employeeId: string }) => Promise<Allocation>;
   updateAllocationStatus: (id: string, status: RequestStatus, rejectReason?: string) => Promise<void>;
@@ -124,6 +130,10 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
+  fetchRenewalRecords: async (licenseId: string) => {
+    return await api.licenses.getRenewals(licenseId);
+  },
+
   createLicense: async (data) => {
     const license = await api.licenses.create(data);
     await get().fetchAll();
@@ -144,6 +154,12 @@ export const useStore = create<AppState>((set, get) => ({
     const result = await api.licenses.batchImport(data);
     await get().fetchAll();
     return result;
+  },
+
+  renewLicense: async (id, data) => {
+    const license = await api.licenses.renew(id, data);
+    await get().fetchAll();
+    return license;
   },
 
   createAllocation: async (data) => {

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import Button from '@/components/Button';
 import Modal from '@/components/Modal';
@@ -20,7 +20,11 @@ import type { RequestStatus } from '../../shared/types';
 import { REQUEST_STATUS_LABELS } from '../../shared/types';
 
 export default function AllocationList() {
-  const { licenses, allocations, employees, createAllocation, updateAllocationStatus, deleteAllocation, fetchAll } = useStore();
+  const { licenses, allocations, employees, createAllocation, updateAllocationStatus, deleteAllocation, fetchAllocations, fetchLicenses, fetchEmployees } = useStore();
+
+  useEffect(() => {
+    Promise.all([fetchAllocations(), fetchLicenses(), fetchEmployees()]);
+  }, []);
 
   const [tab, setTab] = useState<'requests' | 'usage'>('requests');
   const [search, setSearch] = useState('');

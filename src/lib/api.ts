@@ -6,6 +6,7 @@ import type {
   UsageStats,
   RequestStatus,
   ApiResponse,
+  RenewalRecord,
 } from '../../shared/types';
 
 const API_BASE = '/api';
@@ -32,10 +33,18 @@ export const api = {
       request<License>(`/licenses/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     remove: (id: string) => request<void>(`/licenses/${id}`, { method: 'DELETE' }),
     batchImport: (data: Omit<License, 'id' | 'createdAt' | 'updatedAt' | 'allocatedQuantity'>[]) =>
-      request<{ success: number; failed: number }>('/licenses/batch-import', {
+      request<{ added: number; updated: number; failed: number }>('/licenses/batch-import', {
         method: 'POST',
         body: JSON.stringify({ data }),
       }),
+    getRenewals: (id: string) => request<RenewalRecord[]>(`/licenses/${id}/renewals`),
+    renew: (
+      id: string,
+      data: { newExpiryDate: string; newQuantity: number; purchaseOrder?: string; notes?: string },
+    ) => request<License>(`/licenses/${id}/renew`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
   },
 
   allocations: {
