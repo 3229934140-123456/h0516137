@@ -31,6 +31,7 @@ export default function AllocationList() {
   const [showReject, setShowReject] = useState(false);
   const [rejectId, setRejectId] = useState('');
   const [rejectReason, setRejectReason] = useState('');
+  const [toast, setToast] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
 
   const pendingCount = allocations.filter(a => a.status === 'pending').length;
 
@@ -81,8 +82,18 @@ export default function AllocationList() {
     }
   };
 
+  const showToast = (type: 'error' | 'success', message: string) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 3000);
+  };
+
   const handleApprove = async (id: string) => {
-    await updateAllocationStatus(id, 'approved');
+    try {
+      await updateAllocationStatus(id, 'approved');
+      showToast('success', '授权已批准');
+    } catch (err) {
+      showToast('error', (err as Error).message);
+    }
   };
 
   const handleOpenReject = (id: string) => {
@@ -116,6 +127,23 @@ export default function AllocationList() {
       }
     >
       <div className="space-y-4">
+        {toast && (
+          <div
+            className={cn(
+              'px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2 animate-fade-in',
+              toast.type === 'error'
+                ? 'bg-red-50 border border-red-200 text-red-700'
+                : 'bg-emerald-50 border border-emerald-200 text-emerald-700',
+            )}
+          >
+            {toast.type === 'error' ? (
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            ) : (
+              <Check className="w-4 h-4 flex-shrink-0" />
+            )}
+            {toast.message}
+          </div>
+        )}
         <div className="bg-white rounded-xl border border-slate-200 p-1.5 shadow-sm inline-flex">
           <button
             onClick={() => setTab('requests')}

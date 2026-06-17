@@ -29,12 +29,16 @@ router.put('/:id/status', (req, res) => {
     res.status(400).json({ success: false, error: '状态值无效' });
     return;
   }
-  const allocation = allocationService.updateStatus(req.params.id, status, rejectReason);
-  if (!allocation) {
+  const result = allocationService.updateStatus(req.params.id, status, rejectReason);
+  if (!result) {
     res.status(404).json({ success: false, error: '申请记录不存在' });
     return;
   }
-  res.json({ success: true, data: allocation });
+  if ('error' in result) {
+    res.status(400).json({ success: false, error: result.error });
+    return;
+  }
+  res.json({ success: true, data: result });
 });
 
 router.delete('/:id', (req, res) => {

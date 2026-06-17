@@ -39,7 +39,7 @@ export const allocationService = {
     return allocation;
   },
 
-  updateStatus(id: string, status: RequestStatus, rejectReason?: string): Allocation | undefined {
+  updateStatus(id: string, status: RequestStatus, rejectReason?: string): Allocation | { error: string } | undefined {
     return store.updateAllocationStatus(id, status, rejectReason);
   },
 
