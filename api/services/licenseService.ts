@@ -1,0 +1,50 @@
+import { store } from '../store';
+import type { License } from '../../shared/types';
+
+function generateId(): string {
+  return 'lic-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+}
+
+export const licenseService = {
+  getAll(): License[] {
+    return store.getLicenses();
+  },
+
+  getById(id: string): License | undefined {
+    return store.getLicenseById(id);
+  },
+
+  create(data: Omit<License, 'id' | 'createdAt' | 'updatedAt' | 'allocatedQuantity'>): License {
+    const now = new Date().toISOString();
+    const license: License = {
+      ...data,
+      id: generateId(),
+      allocatedQuantity: 0,
+      createdAt: now,
+      updatedAt: now,
+    };
+    store.addLicense(license);
+    return license;
+  },
+
+  update(id: string, updates: Partial<License>): License | undefined {
+    const { id: _, createdAt: __, ...safeUpdates } = updates as License & { id?: string; createdAt?: string };
+    return store.updateLicense(id, safeUpdates);
+  },
+
+  remove(id: string): boolean {
+    return store.deleteLicense(id);
+  },
+
+  batchImport(data: Omit<License, 'id' | 'createdAt' | 'updatedAt' | 'allocatedQuantity'>[]): { success: number; failed: number } {
+    const now = new Date().toISOString();
+    const licenses: License[] = data.map(d => ({
+      ...d,
+      id: generateId(),
+      allocatedQuantity: 0,
+      createdAt: now,
+      updatedAt: now,
+    }));
+    return store.batchImportLicenses(licenses);
+  },
+};
